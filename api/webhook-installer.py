@@ -87,7 +87,7 @@ class TelegramBotWebhook(QWidget):
     def setWebhook(self):
         try:
             response = requests.post(
-                f"https://api.telegram.org/bot{self.token}/setWebhook?url={self.webhook_url}/webhook"
+                f"https://api.telegram.org/bot{self.token}/setWebhook?url={self.webhook_url}/api/bot"
             )
             response_data = response.json()
             if response.status_code == 200:
