@@ -1,12 +1,11 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "api/index.py",
-      "use": "@vercel/python"
-    }
-  ],
+  "builds": [],
   "routes": [
+    {
+      "src": "/api/bot",
+      "dest": "api/bot.py"
+    },
     {
       "src": "/(.*)",
       "dest": "/public/$1"
