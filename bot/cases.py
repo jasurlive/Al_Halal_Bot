@@ -165,6 +165,10 @@ def relay_admin_reply(update: Update, context: CallbackContext):
 
     except Exception as e:
         print(f"Error relaying admin reply: {e}")
+        context.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text=f"Error relaying message to user {user_id}: {e}",
+        )
 
 
 # === END: Relay admin reply to original user ===
