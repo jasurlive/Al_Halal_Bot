@@ -15,7 +15,7 @@ def start(update: Update, context: CallbackContext):
 
     # Send welcome message to the user
     update.message.reply_text(
-        "Welcome to  the new Al Halal Market Bot! Choose an option below:",
+        "Welcome to the new Al Halal Market Bot! Choose an option below:",
         reply_markup=main_menu_keyboard(),
     )
 
@@ -50,10 +50,9 @@ def start(update: Update, context: CallbackContext):
 def handle_message(update: Update, context: CallbackContext):
     text = update.message.text
 
-    # If the message is from the admin, respond accordingly
+    # If the message is from the admin, do nothing here
     if update.message.chat_id == ADMIN_CHAT_ID:
-        # If the admin sends an unknown command, reply with "Hey admin"
-        update.message.reply_text("Hey admin")
+        # Admin's reply will be handled in the relay_admin_reply function
         return
 
     # Handle user messages for the usual responses
