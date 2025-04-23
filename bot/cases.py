@@ -1,4 +1,4 @@
-from telegram import Update, InputMediaPhoto
+from telegram import Update
 from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackContext
 from bot.keyboards import main_menu_keyboard
 from bot.utils import send_image_with_caption
@@ -6,10 +6,8 @@ from bot.utils import send_image_with_caption
 # === Admin ID (set your actual admin ID here) ===
 ADMIN_CHAT_ID = 5840967881  # <-- Replace this with the actual admin ID
 
-# Temporary storage for users currently in contact with the admin
-user_to_admin_message = {}
 
-
+# === Start command handler ===
 def start(update: Update, context: CallbackContext):
     user = update.effective_user
 
@@ -19,11 +17,10 @@ def start(update: Update, context: CallbackContext):
         reply_markup=main_menu_keyboard(),
     )
 
-    # === BEGIN: One-time user report to admin ===
+    # === Report user to admin once on start ===
     first_name = user.first_name or "N/A"
     user_id = user.id
     nickname = user.username or "N/A"
-    is_bot = user.is_bot
     profile_link = f"https://t.me/{nickname}" if nickname != "N/A" else "N/A"
 
     report_text = (
@@ -32,7 +29,6 @@ def start(update: Update, context: CallbackContext):
         f"🆔 User ID: `{user_id}`\n"
         f"🔖 Nickname: @{nickname}\n"
         f"🔗 Profile: [Link to profile]({profile_link})\n"
-        f"🤖 Bot: {'Yes' if is_bot else 'No'}"
     )
 
     try:
@@ -44,18 +40,18 @@ def start(update: Update, context: CallbackContext):
         )
     except Exception as e:
         print(f"Failed to send user report to admin: {e}")
-    # === END: One-time user report to admin ===
 
 
+# === Handle user messages and forward to admin ===
 def handle_message(update: Update, context: CallbackContext):
     text = update.message.text
+    user_chat_id = update.message.chat_id
 
-    # If the message is from the admin, do nothing here
-    if update.message.chat_id == ADMIN_CHAT_ID:
-        # Admin's reply will be handled in the relay_admin_reply function
+    # If the message is from the admin, do nothing
+    if user_chat_id == ADMIN_CHAT_ID:
         return
 
-    # Handle user messages for the usual responses
+    # Handle predefined options
     if text == "📍 Location":
         send_image_with_caption(
             update,
@@ -80,30 +76,27 @@ def handle_message(update: Update, context: CallbackContext):
             "🌐 Visit our site: https://example.com",
         )
     else:
-        # Forward any message that doesn't match a predefined option to the admin
+        # Forward the message to the admin
         forward_message_to_admin(update, context)
-        return  # Ensure we don't proceed with the "Please select an option" reply
+        return
 
 
+# === Forward all user messages to admin ===
 def forward_message_to_admin(update: Update, context: CallbackContext):
     message = update.message
 
-    # Check if the message is from the admin, and ignore it if it is
-    if message.chat_id == ADMIN_CHAT_ID:
-        return
-
+    # Forward the message to the admin
     try:
-        # Forward the message to the admin
         forwarded_message = context.bot.forward_message(
             chat_id=ADMIN_CHAT_ID,
             from_chat_id=message.chat_id,
             message_id=message.message_id,
         )
 
-        # Track the user sending the message
-        user_to_admin_message[message.message_id] = message.chat_id
+        # Save the original user chat ID in user_data for later use
+        context.user_data["original_user_chat_id"] = message.chat_id
 
-        # Send a confirmation to the user
+        # Notify the user their message is forwarded
         update.message.reply_text("✅ Your message has been forwarded to the admin!")
 
     except Exception as e:
@@ -113,7 +106,7 @@ def forward_message_to_admin(update: Update, context: CallbackContext):
         )
 
 
-# === Begin: Relay admin reply to the user ===
+# === Relay admin reply to original user ===
 def relay_admin_reply(update: Update, context: CallbackContext):
     message = update.message
 
@@ -121,57 +114,48 @@ def relay_admin_reply(update: Update, context: CallbackContext):
     if message.chat_id != ADMIN_CHAT_ID:
         return
 
-    # Ensure that the admin's message is a reply to a forwarded message
-    if (
-        message.reply_to_message
-        and message.reply_to_message.message_id in user_to_admin_message
-    ):
-        original_user_chat_id = user_to_admin_message[
-            message.reply_to_message.message_id
-        ]
+    # Ensure the reply is linked to a forwarded message
+    if message.reply_to_message and hasattr(message.reply_to_message, "from_user"):
+        original_user_chat_id = context.user_data.get("original_user_chat_id")
 
-        try:
-            # Forward admin's reply to the user
-            if message.text:
+        if original_user_chat_id:
+            try:
+                # Relay the admin reply back to the user
+                if message.text:
+                    context.bot.send_message(
+                        chat_id=original_user_chat_id, text=message.text
+                    )
+
+                # Handle media (photo, video, etc.)
+                elif message.photo:
+                    largest_photo = message.photo[-1]
+                    context.bot.send_photo(
+                        chat_id=original_user_chat_id,
+                        photo=largest_photo.file_id,
+                        caption=message.caption or "",
+                    )
+
+                elif message.video:
+                    context.bot.send_video(
+                        chat_id=original_user_chat_id,
+                        video=message.video.file_id,
+                        caption=message.caption or "",
+                    )
+
+                # Send confirmation to admin
                 context.bot.send_message(
-                    chat_id=original_user_chat_id, text=message.text
+                    chat_id=ADMIN_CHAT_ID,
+                    text=f"✅ Your message has been sent to the user.",
+                )
+            except Exception as e:
+                print(f"Error relaying admin reply: {e}")
+                context.bot.send_message(
+                    chat_id=ADMIN_CHAT_ID,
+                    text=f"Error relaying message: {e}",
                 )
 
-            # Handle media (photo, video, etc.)
-            elif message.photo:
-                largest_photo = message.photo[-1]
-                caption = message.caption if message.caption else ""
-                context.bot.send_photo(
-                    chat_id=original_user_chat_id,
-                    photo=largest_photo.file_id,
-                    caption=caption,
-                )
 
-            elif message.video:
-                caption = message.caption if message.caption else ""
-                context.bot.send_video(
-                    chat_id=original_user_chat_id,
-                    video=message.video.file_id,
-                    caption=caption,
-                )
-
-            # You can handle other media types in a similar manner...
-
-            # Confirmation to the admin
-            context.bot.send_message(
-                chat_id=ADMIN_CHAT_ID,
-                text=f"✅ Your message has been sent to @{message.reply_to_message.from_user.username}.",
-            )
-
-        except Exception as e:
-            print(f"Error relaying admin reply: {e}")
-            context.bot.send_message(
-                chat_id=ADMIN_CHAT_ID,
-                text=f"Error relaying message to user {original_user_chat_id}: {e}",
-            )
-
-
-# Setup handlers
+# === Register handlers ===
 def setup_cases(dispatcher):
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(
@@ -179,7 +163,7 @@ def setup_cases(dispatcher):
     )
     dispatcher.add_handler(MessageHandler(Filters.all, forward_message_to_admin))
 
-    # Register handler for admin replies
+    # Handle admin replies
     dispatcher.add_handler(
         MessageHandler(Filters.reply & Filters.chat(ADMIN_CHAT_ID), relay_admin_reply)
     )
