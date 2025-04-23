@@ -93,7 +93,7 @@ def forward_all_messages(update: Update, context: CallbackContext):
         return
 
     try:
-        # Forward the message to the admin
+        # Forward the message to the admin (this will now handle both text and media)
         context.bot.forward_message(
             chat_id=ADMIN_CHAT_ID,
             from_chat_id=message.chat_id,
