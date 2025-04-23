@@ -1,4 +1,3 @@
-# bot/cases.py
 from telegram import Update, InputMediaPhoto
 from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackContext
 from bot.keyboards import main_menu_keyboard
@@ -99,12 +98,87 @@ def forward_all_messages(update: Update, context: CallbackContext):
         )
 
 
+# === BEGIN: Relay admin reply to original user ===
+def relay_admin_reply(update: Update, context: CallbackContext):
+    message = update.message
+
+    # Only handle replies sent by the admin
+    if message.chat_id != ADMIN_CHAT_ID:
+        return
+
+    # Ensure it's a reply to a forwarded user message
+    if not message.reply_to_message or not message.reply_to_message.forward_from:
+        return
+
+    original_user = message.reply_to_message.forward_from
+    user_id = original_user.id
+
+    try:
+        # Relay based on message type
+        if message.text:
+            context.bot.send_message(chat_id=user_id, text=message.text)
+
+        elif message.photo:
+            largest_photo = message.photo[-1]
+            caption = message.caption if message.caption else ""
+            context.bot.send_photo(
+                chat_id=user_id, photo=largest_photo.file_id, caption=caption
+            )
+
+        elif message.video:
+            caption = message.caption if message.caption else ""
+            context.bot.send_video(
+                chat_id=user_id, video=message.video.file_id, caption=caption
+            )
+
+        elif message.audio:
+            context.bot.send_audio(
+                chat_id=user_id,
+                audio=message.audio.file_id,
+                caption=message.caption or "",
+            )
+
+        elif message.voice:
+            context.bot.send_voice(
+                chat_id=user_id,
+                voice=message.voice.file_id,
+                caption=message.caption or "",
+            )
+
+        elif message.document:
+            caption = message.caption if message.caption else ""
+            context.bot.send_document(
+                chat_id=user_id, document=message.document.file_id, caption=caption
+            )
+
+        elif message.sticker:
+            context.bot.send_sticker(chat_id=user_id, sticker=message.sticker.file_id)
+
+        elif message.video_note:
+            context.bot.send_video_note(
+                chat_id=user_id, video_note=message.video_note.file_id
+            )
+
+        else:
+            print("Unsupported message type.")
+            # You can optionally send a fallback message here
+
+    except Exception as e:
+        print(f"Error relaying admin reply: {e}")
+
+
+# === END: Relay admin reply to original user ===
+
+
 def setup_cases(dispatcher):
-    # Add the handler for forwarding all messages (text, files, GIFs, etc.)
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(
         MessageHandler(Filters.text & ~Filters.command, handle_message)
     )
-
-    # Add the generic handler for forwarding all other messages (files, images, videos, etc.)
     dispatcher.add_handler(MessageHandler(Filters.all, forward_all_messages))
+
+    # === BEGIN: Register relay for admin replies ===
+    dispatcher.add_handler(
+        MessageHandler(Filters.reply & Filters.chat(ADMIN_CHAT_ID), relay_admin_reply)
+    )
+    # === END: Register relay for admin replies ===
