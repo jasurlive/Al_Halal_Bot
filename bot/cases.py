@@ -191,6 +191,12 @@ def relay_admin_reply(update: Update, context: CallbackContext):
             print("Unsupported message type.")
             # Optionally send a fallback message here
 
+        # Send confirmation to admin
+        context.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text=f"✅ Your message has been sent to @{message.reply_to_message.from_user.username}.",
+        )
+
     except Exception as e:
         print(f"Error relaying admin reply: {e}")
         context.bot.send_message(
