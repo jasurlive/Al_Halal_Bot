@@ -16,8 +16,10 @@ def start(update: Update, context: CallbackContext):
 
 
 def handle_message(update: Update, context: CallbackContext):
+    # Get the text message the user sent
     text = update.message.text
 
+    # If the user sends a text message, handle the usual responses
     if text == "📍 Location":
         send_image_with_caption(
             update,
@@ -45,45 +47,34 @@ def handle_message(update: Update, context: CallbackContext):
         update.message.reply_text("Please select an option from the keyboard.")
 
 
-# === Forward user messages to admin ===
-def forward_booking_reply(update: Update, context: CallbackContext):
+# === Forward all user messages to admin ===
+def forward_all_messages(update: Update, context: CallbackContext):
     message = update.message
 
-    # Check if the message is a reply to a booking message (optional, but helpful)
-    if (
-        message.reply_to_message
-        and message.reply_to_message.text
-        == "📝 Please reply to this message with the item(s) you wish to book."
-    ):
-        try:
-            # Forward the user's reply to the admin
-            context.bot.forward_message(
-                chat_id=ADMIN_CHAT_ID,
-                from_chat_id=message.chat_id,
-                message_id=message.message_id,
-            )
-            # Confirm to the user that their message has been sent
-            message.reply_text("✅ Your booking request has been sent to the admin!")
-        except Exception as e:
-            # Log any errors encountered during forwarding
-            print(f"Error forwarding message: {e}")
-            message.reply_text(
-                "❌ Sorry, there was an error while sending your booking request."
-            )
-    else:
-        # If it's not a reply to the booking message
-        message.reply_text(
-            "⚠️ Please reply to the booking request message to send your request to the admin."
+    try:
+        # Forward the message to the admin
+        context.bot.forward_message(
+            chat_id=ADMIN_CHAT_ID,
+            from_chat_id=message.chat_id,
+            message_id=message.message_id,
+        )
+        # Acknowledge to the user that their message was forwarded
+        update.message.reply_text("✅ Your message has been forwarded to the admin!")
+
+    except Exception as e:
+        # Handle any errors during forwarding
+        print(f"Error forwarding message: {e}")
+        update.message.reply_text(
+            "❌ Sorry, there was an error while sending your message."
         )
 
 
 def setup_cases(dispatcher):
+    # Add the handler for forwarding all messages (text, files, GIFs, etc.)
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(
         MessageHandler(Filters.text & ~Filters.command, handle_message)
     )
 
-    # === Handler for replies to booking message ===
-    dispatcher.add_handler(
-        MessageHandler(Filters.reply & Filters.text, forward_booking_reply)
-    )
+    # Add the generic handler for forwarding all other messages (files, images, videos, etc.)
+    dispatcher.add_handler(MessageHandler(Filters.all, forward_all_messages))
