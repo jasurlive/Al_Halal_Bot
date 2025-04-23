@@ -48,10 +48,15 @@ def start(update: Update, context: CallbackContext):
 
 
 def handle_message(update: Update, context: CallbackContext):
-    # Get the text message the user sent
     text = update.message.text
 
-    # If the user sends a text message, handle the usual responses
+    # If the message is from the admin, respond accordingly
+    if update.message.chat_id == ADMIN_CHAT_ID:
+        # If the admin sends an unknown command, reply with "Hey admin"
+        update.message.reply_text("Hey admin")
+        return
+
+    # Handle user messages for the usual responses
     if text == "📍 Location":
         send_image_with_caption(
             update,
@@ -79,9 +84,13 @@ def handle_message(update: Update, context: CallbackContext):
         update.message.reply_text("Please select an option from the keyboard.")
 
 
-# === Forward all user messages to admin ===
+# === Forward all user messages to admin (excluding admin messages) ===
 def forward_all_messages(update: Update, context: CallbackContext):
     message = update.message
+
+    # Check if the message is from the admin, and ignore it if it is
+    if message.chat_id == ADMIN_CHAT_ID:
+        return
 
     try:
         # Forward the message to the admin
@@ -170,7 +179,7 @@ def relay_admin_reply(update: Update, context: CallbackContext):
 
         else:
             print("Unsupported message type.")
-            # You can optionally send a fallback message here
+            # Optionally send a fallback message here
 
     except Exception as e:
         print(f"Error relaying admin reply: {e}")
