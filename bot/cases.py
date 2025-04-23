@@ -49,13 +49,32 @@ def handle_message(update: Update, context: CallbackContext):
 def forward_booking_reply(update: Update, context: CallbackContext):
     message = update.message
 
-    # Forward the user's reply to the admin
-    context.bot.forward_message(
-        chat_id=ADMIN_CHAT_ID,
-        from_chat_id=message.chat_id,
-        message_id=message.message_id,
-    )
-    message.reply_text("✅ Your booking request has been sent to the admin!")
+    # Check if the message is a reply to a booking message (optional, but helpful)
+    if (
+        message.reply_to_message
+        and message.reply_to_message.text
+        == "📝 Please reply to this message with the item(s) you wish to book."
+    ):
+        try:
+            # Forward the user's reply to the admin
+            context.bot.forward_message(
+                chat_id=ADMIN_CHAT_ID,
+                from_chat_id=message.chat_id,
+                message_id=message.message_id,
+            )
+            # Confirm to the user that their message has been sent
+            message.reply_text("✅ Your booking request has been sent to the admin!")
+        except Exception as e:
+            # Log any errors encountered during forwarding
+            print(f"Error forwarding message: {e}")
+            message.reply_text(
+                "❌ Sorry, there was an error while sending your booking request."
+            )
+    else:
+        # If it's not a reply to the booking message
+        message.reply_text(
+            "⚠️ Please reply to the booking request message to send your request to the admin."
+        )
 
 
 def setup_cases(dispatcher):
