@@ -81,7 +81,9 @@ def handle_message(update: Update, context: CallbackContext):
             "🌐 Visit our site: https://example.com",
         )
     else:
-        update.message.reply_text("Please select an option from the keyboard.")
+        # Forward any message that doesn't match a predefined option to the admin
+        forward_all_messages(update, context)
+        return  # Ensure we don't proceed with the "Please select an option" reply
 
 
 # === Forward all user messages to admin (excluding admin messages) ===
