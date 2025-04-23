@@ -93,8 +93,9 @@ def forward_message_to_admin(update: Update, context: CallbackContext):
             message_id=message.message_id,
         )
 
-        # Save the original user chat ID in user_data for later use
+        # Save the original user chat ID and message ID in user_data for later use
         context.user_data["original_user_chat_id"] = message.chat_id
+        context.user_data["original_message_id"] = message.message_id
 
         # Notify the user their message is forwarded
         update.message.reply_text("✅ Your message has been forwarded to the admin!")
@@ -114,11 +115,12 @@ def relay_admin_reply(update: Update, context: CallbackContext):
     if message.chat_id != ADMIN_CHAT_ID:
         return
 
-    # Ensure the reply is linked to a forwarded message
+    # Ensure the reply is linked to a forwarded user message
     if message.reply_to_message and hasattr(message.reply_to_message, "from_user"):
         original_user_chat_id = context.user_data.get("original_user_chat_id")
+        original_message_id = context.user_data.get("original_message_id")
 
-        if original_user_chat_id:
+        if original_user_chat_id and original_message_id:
             try:
                 # Relay the admin reply back to the user
                 if message.text:
