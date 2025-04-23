@@ -7,7 +7,7 @@ from bot.utils import send_image_with_caption
 ADMIN_CHAT_ID = 5840967881  # <-- Replace this with the actual admin ID
 
 # State to track whether the admin is replying to a user's message
-is_admin_replying = {}
+user_to_admin_message = {}
 
 
 def start(update: Update, context: CallbackContext):
@@ -15,7 +15,7 @@ def start(update: Update, context: CallbackContext):
 
     # Send welcome message to the user
     update.message.reply_text(
-        "Welcome to the Market Bot! Choose an option below:",
+        "Welcome to  the new Al Halal Market Bot! Choose an option below:",
         reply_markup=main_menu_keyboard(),
     )
 
@@ -94,15 +94,16 @@ def forward_all_messages(update: Update, context: CallbackContext):
 
     try:
         # Forward the message to the admin (this will now handle both text and media)
-        context.bot.forward_message(
+        forwarded_message = context.bot.forward_message(
             chat_id=ADMIN_CHAT_ID,
             from_chat_id=message.chat_id,
             message_id=message.message_id,
         )
+
+        # Store the original user and the forwarded message for tracking
+        user_to_admin_message[message.message_id] = message.chat_id
+
         # Acknowledge to the user that their message was forwarded
-        is_admin_replying[message.chat_id] = (
-            False  # Track that this is not an admin reply
-        )
         update.message.reply_text("✅ Your message has been forwarded to the admin!")
 
     except Exception as e:
@@ -122,43 +123,46 @@ def relay_admin_reply(update: Update, context: CallbackContext):
         return
 
     # Ensure it's a reply to a forwarded user message
-    if not message.reply_to_message or not message.reply_to_message.forward_from:
+    if (
+        not message.reply_to_message
+        or message.reply_to_message.message_id not in user_to_admin_message
+    ):
         return
 
-    original_user = message.reply_to_message.forward_from
-    user_id = original_user.id
+    original_user_chat_id = user_to_admin_message[message.reply_to_message.message_id]
 
     try:
-        # Set the state to track that the admin is replying to this user
-        is_admin_replying[user_id] = True
-
-        # Relay based on message type
+        # Relay the admin reply back to the user
         if message.text:
-            context.bot.send_message(chat_id=user_id, text=message.text)
+            context.bot.send_message(chat_id=original_user_chat_id, text=message.text)
 
         elif message.photo:
             largest_photo = message.photo[-1]
             caption = message.caption if message.caption else ""
             context.bot.send_photo(
-                chat_id=user_id, photo=largest_photo.file_id, caption=caption
+                chat_id=original_user_chat_id,
+                photo=largest_photo.file_id,
+                caption=caption,
             )
 
         elif message.video:
             caption = message.caption if message.caption else ""
             context.bot.send_video(
-                chat_id=user_id, video=message.video.file_id, caption=caption
+                chat_id=original_user_chat_id,
+                video=message.video.file_id,
+                caption=caption,
             )
 
         elif message.audio:
             context.bot.send_audio(
-                chat_id=user_id,
+                chat_id=original_user_chat_id,
                 audio=message.audio.file_id,
                 caption=message.caption or "",
             )
 
         elif message.voice:
             context.bot.send_voice(
-                chat_id=user_id,
+                chat_id=original_user_chat_id,
                 voice=message.voice.file_id,
                 caption=message.caption or "",
             )
@@ -166,15 +170,19 @@ def relay_admin_reply(update: Update, context: CallbackContext):
         elif message.document:
             caption = message.caption if message.caption else ""
             context.bot.send_document(
-                chat_id=user_id, document=message.document.file_id, caption=caption
+                chat_id=original_user_chat_id,
+                document=message.document.file_id,
+                caption=caption,
             )
 
         elif message.sticker:
-            context.bot.send_sticker(chat_id=user_id, sticker=message.sticker.file_id)
+            context.bot.send_sticker(
+                chat_id=original_user_chat_id, sticker=message.sticker.file_id
+            )
 
         elif message.video_note:
             context.bot.send_video_note(
-                chat_id=user_id, video_note=message.video_note.file_id
+                chat_id=original_user_chat_id, video_note=message.video_note.file_id
             )
 
         else:
@@ -185,11 +193,8 @@ def relay_admin_reply(update: Update, context: CallbackContext):
         print(f"Error relaying admin reply: {e}")
         context.bot.send_message(
             chat_id=ADMIN_CHAT_ID,
-            text=f"Error relaying message to user {user_id}: {e}",
+            text=f"Error relaying message to user {original_user_chat_id}: {e}",
         )
-    finally:
-        # Reset the state after sending the reply
-        is_admin_replying[user_id] = False
 
 
 # === END: Relay admin reply to original user ===
