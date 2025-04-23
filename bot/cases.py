@@ -6,6 +6,9 @@ from bot.utils import send_image_with_caption
 # === Admin ID (set your actual admin ID here) ===
 ADMIN_CHAT_ID = 5840967881  # <-- Replace this with the actual admin ID
 
+# State to track whether the admin is replying to a user's message
+is_admin_replying = {}
+
 
 def start(update: Update, context: CallbackContext):
     user = update.effective_user
@@ -88,6 +91,9 @@ def forward_all_messages(update: Update, context: CallbackContext):
             message_id=message.message_id,
         )
         # Acknowledge to the user that their message was forwarded
+        is_admin_replying[message.chat_id] = (
+            False  # Track that this is not an admin reply
+        )
         update.message.reply_text("✅ Your message has been forwarded to the admin!")
 
     except Exception as e:
@@ -114,6 +120,9 @@ def relay_admin_reply(update: Update, context: CallbackContext):
     user_id = original_user.id
 
     try:
+        # Set the state to track that the admin is replying to this user
+        is_admin_replying[user_id] = True
+
         # Relay based on message type
         if message.text:
             context.bot.send_message(chat_id=user_id, text=message.text)
@@ -169,6 +178,9 @@ def relay_admin_reply(update: Update, context: CallbackContext):
             chat_id=ADMIN_CHAT_ID,
             text=f"Error relaying message to user {user_id}: {e}",
         )
+    finally:
+        # Reset the state after sending the reply
+        is_admin_replying[user_id] = False
 
 
 # === END: Relay admin reply to original user ===
