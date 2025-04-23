@@ -31,14 +31,14 @@ class TelegramBotWebhook(QWidget):
         layout = QVBoxLayout()
 
         # Automatically fetch token and URL from the .env file
-        self.token = os.getenv("VITE_TELEGRAM_BOT_TOKEN")
+        self.token = os.getenv("BOT_TOKEN")
         self.webhook_url = os.getenv("HOME_URL")
 
         # If no values are found, show a message and disable the input fields
         if not self.token or not self.webhook_url:
             self.textBrowser = QTextBrowser()
             self.textBrowser.setText(
-                "Error: Missing VITE_TELEGRAM_BOT_TOKEN or HOME_URL in .env file."
+                "Error: Missing BOT_TOKEN or HOME_URL in .env file."
             )
             layout.addWidget(self.textBrowser)
             self.setLayout(layout)
@@ -87,7 +87,7 @@ class TelegramBotWebhook(QWidget):
     def setWebhook(self):
         try:
             response = requests.post(
-                f"https://api.telegram.org/bot{self.token}/setWebhook?url={self.webhook_url}/api/bot"
+                f"https://api.telegram.org/bot{self.token}/setWebhook?url={self.webhook_url}"
             )
             response_data = response.json()
             if response.status_code == 200:
