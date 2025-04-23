@@ -9,10 +9,40 @@ ADMIN_CHAT_ID = 5840967881  # <-- Replace this with the actual admin ID
 
 
 def start(update: Update, context: CallbackContext):
+    user = update.effective_user
+
+    # Send welcome message to the user
     update.message.reply_text(
         "Welcome to the Market Bot! Choose an option below:",
         reply_markup=main_menu_keyboard(),
     )
+
+    # === BEGIN: One-time user report to admin ===
+    first_name = user.first_name or "N/A"
+    user_id = user.id
+    nickname = user.username or "N/A"
+    is_bot = user.is_bot
+    profile_link = f"https://t.me/{nickname}" if nickname != "N/A" else "N/A"
+
+    report_text = (
+        f"📋 *User Report:*\n"
+        f"👤 Name: {first_name}\n"
+        f"🆔 User ID: `{user_id}`\n"
+        f"🔖 Nickname: @{nickname}\n"
+        f"🔗 Profile: [Link to profile]({profile_link})\n"
+        f"🤖 Bot: {'Yes' if is_bot else 'No'}"
+    )
+
+    try:
+        context.bot.send_message(
+            chat_id=ADMIN_CHAT_ID,
+            text=report_text,
+            parse_mode="Markdown",
+            disable_web_page_preview=True,
+        )
+    except Exception as e:
+        print(f"Failed to send user report to admin: {e}")
+    # === END: One-time user report to admin ===
 
 
 def handle_message(update: Update, context: CallbackContext):
