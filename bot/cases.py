@@ -1,4 +1,3 @@
-# bot/cases.py
 from telegram import Update, InputMediaPhoto
 from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackContext
 from bot.keyboards import main_menu_keyboard
@@ -6,6 +5,12 @@ from bot.utils import send_image_with_caption
 
 # === Admin ID (set your actual admin ID here) ===
 ADMIN_CHAT_ID = 5840967881  # <-- Replace this with the actual admin ID
+
+# === BEGIN: Message mapping for forwarding ===
+# This stores: {admin_forwarded_message_id: original_user_chat_id}
+# You can later persist this in a DB for scalability
+message_mapping = {}  # <-- Safe to remove if you remove the admin reply feature
+# === END ===
 
 
 def start(update: Update, context: CallbackContext):
@@ -83,11 +88,16 @@ def forward_all_messages(update: Update, context: CallbackContext):
 
     try:
         # Forward the message to the admin
-        context.bot.forward_message(
+        forwarded = context.bot.forward_message(
             chat_id=ADMIN_CHAT_ID,
             from_chat_id=message.chat_id,
             message_id=message.message_id,
         )
+
+        # === BEGIN: Store forwarded message mapping (for admin reply) ===
+        message_mapping[forwarded.message_id] = message.chat_id
+        # === END ===
+
         # Acknowledge to the user that their message was forwarded
         update.message.reply_text("✅ Your message has been forwarded to the admin!")
 
@@ -99,12 +109,49 @@ def forward_all_messages(update: Update, context: CallbackContext):
         )
 
 
+# === BEGIN: Admin reply handler to user ===
+# Allows admin to reply to forwarded message and sends back to original user
+def handle_admin_reply(update: Update, context: CallbackContext):
+    message = update.message
+
+    # Ensure this message is a reply
+    if message.reply_to_message:
+        original_forwarded_id = message.reply_to_message.message_id
+        user_chat_id = message_mapping.get(original_forwarded_id)
+
+        if user_chat_id:
+            try:
+                context.bot.send_message(
+                    chat_id=user_chat_id,
+                    text=f"💬 Admin: {message.text}",
+                )
+                message.reply_text("✅ Your reply was sent to the user.")
+            except Exception as e:
+                print(f"Error sending reply to user: {e}")
+                message.reply_text("❌ Failed to send your reply to the user.")
+        else:
+            message.reply_text("⚠ Could not find the original user for this message.")
+
+
+# === END ===
+
+
 def setup_cases(dispatcher):
-    # Add the handler for forwarding all messages (text, files, GIFs, etc.)
+    # Add the handler for starting the bot
     dispatcher.add_handler(CommandHandler("start", start))
+
+    # Add the handler for known text buttons
     dispatcher.add_handler(
         MessageHandler(Filters.text & ~Filters.command, handle_message)
     )
 
-    # Add the generic handler for forwarding all other messages (files, images, videos, etc.)
+    # Add the handler for forwarding all user messages
     dispatcher.add_handler(MessageHandler(Filters.all, forward_all_messages))
+
+    # === BEGIN: Add handler for admin replies ===
+    dispatcher.add_handler(
+        MessageHandler(
+            Filters.chat(chat_id=ADMIN_CHAT_ID) & Filters.reply, handle_admin_reply
+        )
+    )
+    # === END ===
