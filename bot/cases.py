@@ -4,12 +4,10 @@ from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackContex
 from bot.keyboards import main_menu_keyboard
 from bot.utils import send_image_with_caption
 
-# === Admin ID (set your actual admin ID here) ===
-ADMIN_CHAT_ID = 5840967881  # <-- Replace this with the actual admin ID
+ADMIN_CHAT_ID = 5840967881
 
-# === Dictionary to track template message IDs per user ===
-# This is kept in-memory. If using a persistent server or DB, move this there.
 user_template_message_ids = {}
+forwarded_message_map = {}
 
 
 def start(update: Update, context: CallbackContext):
@@ -23,57 +21,63 @@ def handle_message(update: Update, context: CallbackContext):
     text = update.message.text
     chat_id = update.effective_chat.id
 
-    if text == "📍 Location":
+    if text == " Location":
         send_image_with_caption(
             update,
             context,
             "assets/img/bot.png",
-            "📍 We're located at: 123 Market St, Townsville",
+            " We're located at: 123 Market St, Townsville",
         )
-    elif text == "☎ Contact":
+    elif text == " Contact":
         send_image_with_caption(
-            update, context, "assets/img/bot.png", "📞 Contact us at: +123 456 789"
+            update, context, "assets/img/bot.png", " Contact us at: +123 456 789"
         )
-    elif text == "🛒 Book Items":
+    elif text == " Book Items":
         sent = update.message.reply_text(
-            "📝 Please reply to this message with the item(s) you wish to book.\n"
+            " Please reply to this message with the item(s) you wish to book.\n"
             "Include quantity, preferred time, and any special requests."
         )
-        # Store the template message ID for this user
         user_template_message_ids[chat_id] = sent.message_id
-    elif text == "🌐 Website":
+    elif text == " Website":
         send_image_with_caption(
             update,
             context,
             "assets/img/bot.png",
-            "🌐 Visit our site: https://example.com",
+            " Visit our site: https://example.com",
         )
     else:
         update.message.reply_text("Please select an option from the keyboard.")
 
 
-# === NEW HANDLER FUNCTION: Forward replies to admin ===
 def forward_booking_reply(update: Update, context: CallbackContext):
     message = update.message
-    chat_id = update.effective_chat.id
+    user_chat_id = update.effective_chat.id
+    user_message_id = message.message_id
 
-    # Check if user has a tracked booking message
-    if chat_id in user_template_message_ids:
-        template_msg_id = user_template_message_ids[chat_id]
+    forwarded = context.bot.forward_message(
+        chat_id=ADMIN_CHAT_ID,
+        from_chat_id=user_chat_id,
+        message_id=user_message_id,
+    )
 
-        # Check if this is a reply to that template
-        if (
-            message.reply_to_message
-            and message.reply_to_message.message_id == template_msg_id
-        ):
-            context.bot.forward_message(
-                chat_id=ADMIN_CHAT_ID,
-                from_chat_id=chat_id,
-                message_id=message.message_id,
+    forwarded_message_map[forwarded.message_id] = (user_chat_id, user_message_id)
+    message.reply_text("Your message has been sent to the admin!")
+
+
+def handle_admin_reply(update: Update, context: CallbackContext):
+    message = update.message
+
+    if message.reply_to_message and message.chat.id == ADMIN_CHAT_ID:
+        admin_reply_to_id = message.reply_to_message.message_id
+
+        if admin_reply_to_id in forwarded_message_map:
+            user_chat_id, user_message_id = forwarded_message_map[admin_reply_to_id]
+
+            context.bot.send_message(
+                chat_id=user_chat_id,
+                text=message.text,
+                reply_to_message_id=user_message_id,
             )
-            message.reply_text("✅ Your booking request has been sent to the admin!")
-        else:
-            pass  # You can optionally guide user here if replying wrong message
 
 
 def setup_cases(dispatcher):
@@ -81,8 +85,12 @@ def setup_cases(dispatcher):
     dispatcher.add_handler(
         MessageHandler(Filters.text & ~Filters.command, handle_message)
     )
-
-    # === Handler for replies to booking message (safe to remove if not needed) ===
     dispatcher.add_handler(
         MessageHandler(Filters.reply & Filters.text, forward_booking_reply)
+    )
+    dispatcher.add_handler(
+        MessageHandler(
+            Filters.text & Filters.reply & Filters.chat(chat_id=ADMIN_CHAT_ID),
+            handle_admin_reply,
+        )
     )
