@@ -5,7 +5,7 @@ from bot.utils import send_image_with_caption
 import logging
 
 # === Constants ===
-ADMIN_CHAT_ID = 5840967881
+ADMIN_CHAT_ID = 5840967881  # Replace this with your real Telegram admin user ID
 
 # === Setup logging ===
 logging.basicConfig(level=logging.DEBUG)
@@ -70,8 +70,12 @@ def forward_all_messages(update: Update, context: CallbackContext):
     message = update.message
     user = message.from_user
 
-    # === Check if this is an admin reply to a forwarded user message ===
-    if message.reply_to_message and message.reply_to_message.forward_from:
+    # === Handle admin reply ===
+    if (
+        user.id == ADMIN_CHAT_ID
+        and message.reply_to_message
+        and message.reply_to_message.forward_from
+    ):
         original = message.reply_to_message
         target_user_id = original.forward_from.id
 
@@ -127,20 +131,20 @@ def forward_all_messages(update: Update, context: CallbackContext):
                     update.message.reply_text("⚠️ Unsupported message type.")
 
                 update.message.reply_text("✅ Message sent to the user!")
+
             except Exception as e:
                 logger.error(
                     f"[Error] Couldn't send reply to user {target_user_id}: {e}"
                 )
                 update.message.reply_text("❌ Failed to send message to the user.")
+        return  # === Exit to avoid double forwarding
 
-            return
-
-    # === Admin sent unrelated message ===
+    # === Ignore any non-reply admin messages ===
     if user.id == ADMIN_CHAT_ID:
-        logger.debug("Admin sent a non-reply message.")
+        logger.debug("Admin sent a non-reply message. Ignoring.")
         return
 
-    # === Regular user message — forward to admin ===
+    # === Forward regular user message to admin ===
     try:
         context.bot.forward_message(
             chat_id=ADMIN_CHAT_ID,
@@ -159,10 +163,10 @@ def forward_all_messages(update: Update, context: CallbackContext):
 def setup_cases(dispatcher):
     dispatcher.add_handler(CommandHandler("start", start))
 
-    # ✅ Make admin replies work first
+    # === ✅ Ensure admin replies are caught first
     dispatcher.add_handler(MessageHandler(Filters.all, forward_all_messages), group=0)
 
-    # ✅ Handle user messages after
+    # === ✅ Handle user interactions
     dispatcher.add_handler(
         MessageHandler(Filters.text & ~Filters.command, handle_message), group=1
     )
