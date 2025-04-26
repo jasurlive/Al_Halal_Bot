@@ -54,10 +54,12 @@ def handle_message(update: Update, context: CallbackContext):
 
 def handle_admin_reply(update: Update, context: CallbackContext):
     if update.message.reply_to_message:
-        # Get the user chat ID from the original forwarded message
-        user_chat_id = update.message.reply_to_message.forward_from.id
+        user_chat_id = (
+            update.message.reply_to_message.forward_from.id
+        )  # Get the user ID from the admin reply
         logger.info(f"Admin replied to user {user_chat_id}.")
 
+        # Ensure the user exists in the dictionary
         if user_chat_id in user_chat_dict:
             try:
                 # Send the admin reply to the correct user
