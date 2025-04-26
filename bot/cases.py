@@ -1,10 +1,16 @@
-from telegram import Update
+from telegram import Update, InputMediaPhoto
 from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackContext
 from bot.keyboards import main_menu_keyboard
 from bot.utils import send_image_with_caption
+import logging
 
-# from firebase import log_user_message  # Optional logging
+# from firebase import log_user_message  # Uncomment if you're logging to Firestore
+
 ADMIN_CHAT_ID = 5840967881
+
+# === Setup logging ===
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 def start(update: Update, context: CallbackContext):
@@ -18,8 +24,10 @@ def handle_message(update: Update, context: CallbackContext):
     user = update.message.from_user
     text = update.message.text
 
-    # === Optional: Log to Firebase ===
+    # === Optional: Log the message to Firebase ===
     # log_user_message(user.id, user.username or "NoUsername", text)
+
+    logger.debug(f"Received message: {text} from user: {user.id} ({user.username})")
 
     if text == "📍 Location":
         send_image_with_caption(
@@ -45,6 +53,7 @@ def handle_message(update: Update, context: CallbackContext):
             "🌐 Visit our site: https://example.com",
         )
     else:
+        # === Handle unknown message ===
         if user.id == ADMIN_CHAT_ID:
             update.message.reply_text("👋 Hey, admin! I got it!")
         else:
@@ -56,7 +65,7 @@ def handle_message(update: Update, context: CallbackContext):
                     message_id=update.message.message_id,
                 )
             except Exception as e:
-                print(f"Error forwarding message: {e}")
+                logger.error(f"Error forwarding message: {e}")
                 update.message.reply_text(
                     "❌ Sorry, there was an error while sending your message."
                 )
@@ -66,17 +75,23 @@ def forward_all_messages(update: Update, context: CallbackContext):
     message = update.message
     user = message.from_user
 
-    # === Check if the message is a reply to a forwarded user message ===
-    if user.id == ADMIN_CHAT_ID and message.reply_to_message:
+    # === Log message details ===
+    logger.debug(f"Processing message from user {user.id} - Text: {message.text}")
+
+    # === Check if the admin is replying to a user's message ===
+    if message.reply_to_message and message.reply_to_message.forward_from:
         original = message.reply_to_message
-        # Check if the original message was forwarded from a user
-        if original.forward_from:
+        logger.debug(f"Admin replying to message from user: {original.forward_from.id}")
+
+        # Check if the original message was forwarded from a user (not another admin)
+        if original.forward_from and original.forward_from.id != ADMIN_CHAT_ID:
             target_user_id = original.forward_from.id
 
             try:
                 # === Handle different message types ===
                 if message.text:
                     context.bot.send_message(chat_id=target_user_id, text=message.text)
+                    logger.debug(f"Sent text message to user {target_user_id}")
 
                 elif message.photo:
                     context.bot.send_photo(
@@ -84,6 +99,7 @@ def forward_all_messages(update: Update, context: CallbackContext):
                         photo=message.photo[-1].file_id,
                         caption=message.caption if message.caption else None,
                     )
+                    logger.debug(f"Sent photo to user {target_user_id}")
 
                 elif message.document:
                     context.bot.send_document(
@@ -91,6 +107,7 @@ def forward_all_messages(update: Update, context: CallbackContext):
                         document=message.document.file_id,
                         caption=message.caption if message.caption else None,
                     )
+                    logger.debug(f"Sent document to user {target_user_id}")
 
                 elif message.video:
                     context.bot.send_video(
@@ -98,6 +115,7 @@ def forward_all_messages(update: Update, context: CallbackContext):
                         video=message.video.file_id,
                         caption=message.caption if message.caption else None,
                     )
+                    logger.debug(f"Sent video to user {target_user_id}")
 
                 elif message.audio:
                     context.bot.send_audio(
@@ -105,6 +123,7 @@ def forward_all_messages(update: Update, context: CallbackContext):
                         audio=message.audio.file_id,
                         caption=message.caption if message.caption else None,
                     )
+                    logger.debug(f"Sent audio to user {target_user_id}")
 
                 elif message.voice:
                     context.bot.send_voice(
@@ -112,25 +131,30 @@ def forward_all_messages(update: Update, context: CallbackContext):
                         voice=message.voice.file_id,
                         caption=message.caption if message.caption else None,
                     )
+                    logger.debug(f"Sent voice message to user {target_user_id}")
 
                 elif message.sticker:
                     context.bot.send_sticker(
                         chat_id=target_user_id,
                         sticker=message.sticker.file_id,
                     )
+                    logger.debug(f"Sent sticker to user {target_user_id}")
 
                 else:
                     update.message.reply_text("⚠️ Unsupported message type.")
 
                 update.message.reply_text("✅ Message sent to the user!")
             except Exception as e:
-                print(f"[Error] Couldn't send reply to user: {e}")
+                logger.error(
+                    f"[Error] Couldn't send reply to user {target_user_id}: {e}"
+                )
                 update.message.reply_text("❌ Failed to send message to the user.")
 
             return
 
-    # === If the admin is just sending a message without replying to a user ===
+    # === Admin sends an unrelated message — no reply ===
     if user.id == ADMIN_CHAT_ID:
+        logger.debug("Admin sent an unrelated message, replying with 'I got it!'")
         update.message.reply_text("👋 Hey, admin! I got it!")
         return
 
@@ -143,7 +167,7 @@ def forward_all_messages(update: Update, context: CallbackContext):
         )
         update.message.reply_text("✅ Your message has been forwarded to the admin!")
     except Exception as e:
-        print(f"Error forwarding message: {e}")
+        logger.error(f"Error forwarding message: {e}")
         update.message.reply_text(
             "❌ Sorry, there was an error while sending your message."
         )
