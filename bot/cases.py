@@ -10,8 +10,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-ADMIN_CHAT_ID = 5840967881
-user_chat_dict = {}  # Dictionary to store user chat IDs for reply mapping
+ADMIN_CHAT_ID = 5840967881  # Admin chat ID
+user_chat_dict = {}  # Dictionary to store user chat IDs
 
 
 def start(update: Update, context: CallbackContext):
@@ -22,20 +22,22 @@ def start(update: Update, context: CallbackContext):
     logger.info(f"Start command triggered by user {update.message.chat_id}")
 
 
-def handle_message(update: Update, context: CallbackContext):
+def forward_to_admin(update: Update, context: CallbackContext):
+    """Handle user messages and forward them to the admin."""
     user_chat_id = update.message.chat_id
 
-    # Avoid forwarding messages from admin to the admin unless it's a reply
-    if user_chat_id == ADMIN_CHAT_ID and not update.message.reply_to_message:
-        logger.info(f"Admin message from {ADMIN_CHAT_ID} ignored (not a reply).")
+    # Ignore messages from the admin (we don't want to forward admin's own messages)
+    if user_chat_id == ADMIN_CHAT_ID:
         return
 
+    # Store the user's chat ID so we can forward admin replies to the correct user
     user_chat_dict[user_chat_id] = user_chat_id
     logger.info(
         f"Forwarding message from user {user_chat_id} to admin {ADMIN_CHAT_ID}."
     )
 
     try:
+        # Forward the user message to the admin
         context.bot.forward_message(
             chat_id=ADMIN_CHAT_ID,
             from_chat_id=user_chat_id,
@@ -53,6 +55,7 @@ def handle_message(update: Update, context: CallbackContext):
 
 
 def handle_admin_reply(update: Update, context: CallbackContext):
+    """Handle admin replies and send them to the correct user."""
     if update.message.reply_to_message:
         # Get the user chat ID from the original forwarded message
         user_chat_id = update.message.reply_to_message.forward_from.id
@@ -83,7 +86,7 @@ def handle_admin_reply(update: Update, context: CallbackContext):
 def setup_cases(dispatcher):
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(
-        MessageHandler(Filters.text & ~Filters.command, handle_message)
+        MessageHandler(Filters.text & ~Filters.command, forward_to_admin)
     )
     dispatcher.add_handler(
         MessageHandler(Filters.text & Filters.reply, handle_admin_reply)
