@@ -25,9 +25,9 @@ def start(update: Update, context: CallbackContext):
 def handle_message(update: Update, context: CallbackContext):
     user_chat_id = update.message.chat_id
 
-    # Avoid forwarding messages from admin to the admin
-    if user_chat_id == ADMIN_CHAT_ID:
-        logger.info(f"Admin message from {ADMIN_CHAT_ID} ignored.")
+    # Avoid forwarding messages from admin to the admin unless it's a reply
+    if user_chat_id == ADMIN_CHAT_ID and not update.message.reply_to_message:
+        logger.info(f"Admin message from {ADMIN_CHAT_ID} ignored (not a reply).")
         return
 
     user_chat_dict[user_chat_id] = user_chat_id
@@ -54,9 +54,8 @@ def handle_message(update: Update, context: CallbackContext):
 
 def handle_admin_reply(update: Update, context: CallbackContext):
     if update.message.reply_to_message:
-        user_chat_id = (
-            update.message.reply_to_message.forward_from.id
-        )  # Get the user ID from the admin reply
+        # Get the user chat ID from the original forwarded message
+        user_chat_id = update.message.reply_to_message.forward_from.id
         logger.info(f"Admin replied to user {user_chat_id}.")
 
         # Ensure the user exists in the dictionary
