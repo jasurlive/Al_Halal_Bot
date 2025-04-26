@@ -54,12 +54,17 @@ def forward_booking_reply(update: Update, context: CallbackContext):
     user_chat_id = update.effective_chat.id
     user_message_id = message.message_id
 
+    # 🛠️ SAFELY ADDED: Ignore admin messages here to avoid duplicate handling
+    if user_chat_id == ADMIN_CHAT_ID:
+        return
+
     forwarded = context.bot.forward_message(
         chat_id=ADMIN_CHAT_ID,
         from_chat_id=user_chat_id,
         message_id=user_message_id,
     )
 
+    # Store the mapping for admin replies
     forwarded_message_map[forwarded.message_id] = (user_chat_id, user_message_id)
     message.reply_text("Your message has been sent to the admin!")
 
@@ -67,7 +72,11 @@ def forward_booking_reply(update: Update, context: CallbackContext):
 def handle_admin_reply(update: Update, context: CallbackContext):
     message = update.message
 
-    if message.reply_to_message and message.chat.id == ADMIN_CHAT_ID:
+    # 🛠️ SAFELY ADDED: Only handle replies in admin chat
+    if message.chat.id != ADMIN_CHAT_ID:
+        return
+
+    if message.reply_to_message:
         admin_reply_to_id = message.reply_to_message.message_id
 
         if admin_reply_to_id in forwarded_message_map:
@@ -85,9 +94,14 @@ def setup_cases(dispatcher):
     dispatcher.add_handler(
         MessageHandler(Filters.text & ~Filters.command, handle_message)
     )
+    # 🛠️ SAFELY UPDATED: Forward only user replies
     dispatcher.add_handler(
-        MessageHandler(Filters.reply & Filters.text, forward_booking_reply)
+        MessageHandler(
+            Filters.reply & Filters.text & ~Filters.chat(chat_id=ADMIN_CHAT_ID),
+            forward_booking_reply,
+        )
     )
+    # 🛠️ SAFELY UPDATED: Admin reply handler (must come after to override properly)
     dispatcher.add_handler(
         MessageHandler(
             Filters.text & Filters.reply & Filters.chat(chat_id=ADMIN_CHAT_ID),
