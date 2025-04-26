@@ -1,10 +1,9 @@
-from telegram import Update, InputMediaPhoto
+from telegram import Update
 from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackContext
 from bot.keyboards import main_menu_keyboard
 from bot.utils import send_image_with_caption
 
-# from firebase import log_user_message  # Uncomment if you're logging to Firestore
-
+# from firebase import log_user_message  # Optional logging
 ADMIN_CHAT_ID = 5840967881
 
 
@@ -19,7 +18,7 @@ def handle_message(update: Update, context: CallbackContext):
     user = update.message.from_user
     text = update.message.text
 
-    # === Optional: Log the message to Firebase ===
+    # === Optional: Log to Firebase ===
     # log_user_message(user.id, user.username or "NoUsername", text)
 
     if text == "📍 Location":
@@ -46,7 +45,6 @@ def handle_message(update: Update, context: CallbackContext):
             "🌐 Visit our site: https://example.com",
         )
     else:
-        # === Handle unknown message ===
         if user.id == ADMIN_CHAT_ID:
             update.message.reply_text("👋 Hey, admin! I got it!")
         else:
@@ -68,10 +66,74 @@ def forward_all_messages(update: Update, context: CallbackContext):
     message = update.message
     user = message.from_user
 
+    # === Admin replying to a forwarded user message ===
+    if user.id == ADMIN_CHAT_ID and message.reply_to_message:
+        original = message.reply_to_message
+        if original.forward_from:
+            target_user_id = original.forward_from.id
+
+            try:
+                # === Handle different message types ===
+                if message.text:
+                    context.bot.send_message(chat_id=target_user_id, text=message.text)
+
+                elif message.photo:
+                    context.bot.send_photo(
+                        chat_id=target_user_id,
+                        photo=message.photo[-1].file_id,
+                        caption=message.caption if message.caption else None,
+                    )
+
+                elif message.document:
+                    context.bot.send_document(
+                        chat_id=target_user_id,
+                        document=message.document.file_id,
+                        caption=message.caption if message.caption else None,
+                    )
+
+                elif message.video:
+                    context.bot.send_video(
+                        chat_id=target_user_id,
+                        video=message.video.file_id,
+                        caption=message.caption if message.caption else None,
+                    )
+
+                elif message.audio:
+                    context.bot.send_audio(
+                        chat_id=target_user_id,
+                        audio=message.audio.file_id,
+                        caption=message.caption if message.caption else None,
+                    )
+
+                elif message.voice:
+                    context.bot.send_voice(
+                        chat_id=target_user_id,
+                        voice=message.voice.file_id,
+                        caption=message.caption if message.caption else None,
+                    )
+
+                elif message.sticker:
+                    context.bot.send_sticker(
+                        chat_id=target_user_id,
+                        sticker=message.sticker.file_id,
+                    )
+
+                else:
+                    update.message.reply_text("⚠️ Unsupported message type.")
+
+                update.message.reply_text("✅ Message sent to the user!")
+            except Exception as e:
+                print(f"[Error] Couldn't send reply to user: {e}")
+                update.message.reply_text("❌ Failed to send message to the user.")
+
+            return
+
+    # === Admin sending unrelated message ===
     if user.id == ADMIN_CHAT_ID:
         update.message.reply_text("👋 Hey, admin! I got it!")
         return
 
+    # === Regular user message — forward to admin ===
     try:
         context.bot.forward_message(
             chat_id=ADMIN_CHAT_ID,
