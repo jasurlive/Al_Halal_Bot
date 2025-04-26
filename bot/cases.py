@@ -66,9 +66,10 @@ def forward_all_messages(update: Update, context: CallbackContext):
     message = update.message
     user = message.from_user
 
-    # === Admin replying to a forwarded user message ===
+    # === Check if the message is a reply to a forwarded user message ===
     if user.id == ADMIN_CHAT_ID and message.reply_to_message:
         original = message.reply_to_message
+        # Check if the original message was forwarded from a user
         if original.forward_from:
             target_user_id = original.forward_from.id
 
@@ -128,7 +129,7 @@ def forward_all_messages(update: Update, context: CallbackContext):
 
             return
 
-    # === Admin sending unrelated message ===
+    # === If the admin is just sending a message without replying to a user ===
     if user.id == ADMIN_CHAT_ID:
         update.message.reply_text("👋 Hey, admin! I got it!")
         return
