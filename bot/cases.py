@@ -2,7 +2,6 @@ import logging
 from telegram import Update
 from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackContext
 from bot.keyboards import main_menu_keyboard
-from bot.utils import send_image_with_caption
 
 # Set up logging
 logging.basicConfig(
@@ -11,19 +10,20 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 ADMIN_CHAT_ID = 5840967881  # Admin chat ID
-user_chat_dict = {}  # Dictionary to store user chat IDs
+user_chat_dict = {}  # Dictionary to store user chat IDs for replies
 
 
 def start(update: Update, context: CallbackContext):
+    user_chat_id = update.message.chat_id
     update.message.reply_text(
         "Welcome to the Market Bot! Choose an option below:",
         reply_markup=main_menu_keyboard(),
     )
-    logger.info(f"Start command triggered by user {update.message.chat_id}")
+    logger.info(f"Start command triggered by user {user_chat_id}")
 
 
 def forward_to_admin(update: Update, context: CallbackContext):
-    """Handle user messages and forward them to the admin."""
+    """Forward user messages to the admin."""
     user_chat_id = update.message.chat_id
 
     # Ignore messages from the admin (we don't want to forward admin's own messages)
@@ -57,25 +57,43 @@ def forward_to_admin(update: Update, context: CallbackContext):
 def handle_admin_reply(update: Update, context: CallbackContext):
     """Handle admin replies and send them to the correct user."""
     if update.message.reply_to_message:
-        # Get the user chat ID from the original forwarded message
-        user_chat_id = update.message.reply_to_message.forward_from.id
-        logger.info(f"Admin replied to user {user_chat_id}.")
+        original_message = update.message.reply_to_message
 
-        # Ensure the user exists in the dictionary
-        if user_chat_id in user_chat_dict:
-            try:
-                # Send the admin reply to the correct user
-                context.bot.send_message(chat_id=user_chat_id, text=update.message.text)
-                update.message.reply_text("✅ Your reply has been sent to the user!")
-                logger.info(f"Admin reply sent to user {user_chat_id}.")
-            except Exception as e:
-                logger.error(f"Error sending reply to user {user_chat_id}: {e}")
+        # Ensure the reply is to a forwarded user message, not an admin reply
+        if original_message.forward_from:
+            user_chat_id = (
+                original_message.forward_from.id
+            )  # Extract user chat ID from original forwarded message
+            logger.info(f"Admin replied to user {user_chat_id}.")
+
+            # Ensure the user exists in the dictionary
+            if user_chat_id in user_chat_dict:
+                try:
+                    # Send the admin reply to the correct user
+                    context.bot.send_message(
+                        chat_id=user_chat_id, text=update.message.text
+                    )
+                    update.message.reply_text(
+                        f"✅ Your reply has been sent to user {user_chat_id}!"
+                    )
+                    logger.info(f"Admin reply sent to user {user_chat_id}.")
+                except Exception as e:
+                    logger.error(f"Error sending reply to user {user_chat_id}: {e}")
+                    update.message.reply_text(
+                        f"❌ Sorry, there was an error while sending your reply to user {user_chat_id}."
+                    )
+            else:
+                logger.warning(f"User {user_chat_id} not found for reply.")
                 update.message.reply_text(
-                    "❌ Sorry, there was an error while sending your reply."
+                    f"❌ User {user_chat_id} not found for this reply."
                 )
         else:
-            logger.warning(f"User {user_chat_id} not found for reply.")
-            update.message.reply_text("❌ User not found for this reply.")
+            logger.warning(
+                f"Admin's reply is not to a user message. Admin chat ID: {update.message.chat_id}"
+            )
+            update.message.reply_text(
+                "❌ Admin's reply is not to a valid user message."
+            )
     else:
         logger.warning(
             f"Admin message was not a reply. Admin chat ID: {update.message.chat_id}"
