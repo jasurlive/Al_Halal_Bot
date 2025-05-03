@@ -2,3 +2,4 @@ python-telegram-bot==13.15
 fastapi
 uvicorn
 python-dotenv
+firebase-admin==5.0.0
