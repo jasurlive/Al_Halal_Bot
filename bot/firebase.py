@@ -1,8 +1,7 @@
 import os
 import json
-import uuid  # Importing the entire uuid module
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import firebase_admin
 from firebase_admin import credentials, firestore
 
@@ -27,8 +26,7 @@ def save_booking_session(user_id, chat_id):
         {
             "user_id": user_id,
             "chat_id": chat_id,
-            "order_id": str(uuid.uuid4()),  # Correct use of uuid.uuid4()
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(timezone.utc),
         }
     )
 
