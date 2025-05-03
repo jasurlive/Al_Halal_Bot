@@ -3,9 +3,13 @@ from telegram import Update, InputMediaPhoto
 from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackContext
 from bot.keyboards import main_menu_keyboard
 from bot.utils import send_image_with_caption
+from dotenv import load_dotenv
+import os
 
-# === Admin ID (set your actual admin ID here) ===
-ADMIN_CHAT_ID = 5840967881  # <-- Replace this with the actual admin ID
+load_dotenv()
+
+# === Admin ID (loaded from .env) ===
+ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID"))
 
 
 def start(update: Update, context: CallbackContext):
