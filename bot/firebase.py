@@ -19,8 +19,16 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
+# Define bot's unique user ID
+BOT_USER_ID = "alhalal_bot"  # You can set this as an environment variable if needed
+
 
 def save_booking_session(user_id, chat_id):
+    if user_id != BOT_USER_ID:
+        raise PermissionError(
+            "This bot cannot access booking sessions for non-bot users."
+        )
+
     doc_ref = db.collection("sessions").document(str(user_id))
     doc_ref.set(
         {
@@ -33,6 +41,11 @@ def save_booking_session(user_id, chat_id):
 
 
 def get_booking_session(user_id):
+    if user_id != BOT_USER_ID:
+        raise PermissionError(
+            "This bot cannot access booking sessions for non-bot users."
+        )
+
     doc = db.collection("sessions").document(str(user_id)).get()
     if doc.exists:
         data = doc.to_dict()
