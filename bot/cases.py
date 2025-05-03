@@ -1,6 +1,12 @@
 # bot/cases.py
 from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
-from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackContext
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
 from bot.utils import send_image_with_caption
 from bot.firebase import save_user_info, get_user_chat_info
 from dotenv import load_dotenv
@@ -17,12 +23,12 @@ def main_menu_keyboard():
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 
-def start(update: Update, context: CallbackContext):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
     chat_id = update.effective_chat.id
 
-    update.message.reply_text(
+    await update.message.reply_text(
         "Welcome! Choose an option below:",
         reply_markup=main_menu_keyboard(),
     )
@@ -39,7 +45,7 @@ def start(update: Update, context: CallbackContext):
         f"🔗 [Profile]({profile_link})"
     )
     try:
-        context.bot.send_message(
+        await context.bot.send_message(
             chat_id=ADMIN_CHAT_ID,
             text=report,
             parse_mode="Markdown",
@@ -49,39 +55,39 @@ def start(update: Update, context: CallbackContext):
         print(f"Admin notification failed: {e}")
 
 
-def handle_message(update: Update, context: CallbackContext):
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     text = update.message.text
 
     if text == "📍 Address":
-        send_image_with_caption(
+        await send_image_with_caption(
             update,
             context,
             "assets/img/bot.png",
             "📍 We're located at: 123 Market St, Townsville",
         )
     elif text == "☎ Contact":
-        update.message.reply_text(
+        await update.message.reply_text(
             "✉️ Please send your message, and the admin will reply here."
         )
-        save_user_info(user_id, chat_id)  # Update or store chat info
+        save_user_info(user_id, chat_id)
     else:
-        # Forward user message to admin
         try:
-            context.bot.forward_message(
+            await context.bot.forward_message(
                 chat_id=ADMIN_CHAT_ID,
                 from_chat_id=chat_id,
                 message_id=update.message.message_id,
             )
-            update.message.reply_text("✅ Message sent to the admin.")
+            await update.message.reply_text("✅ Message sent to the admin.")
         except Exception as e:
             print(f"Forwarding failed: {e}")
-            update.message.reply_text("❌ Failed to send your message to the admin.")
+            await update.message.reply_text(
+                "❌ Failed to send your message to the admin."
+            )
 
 
-def forward_from_admin(update: Update, context: CallbackContext):
-    # Admin replies to user here
+async def forward_from_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.id != ADMIN_CHAT_ID or not update.message.reply_to_message:
         return
 
@@ -92,25 +98,29 @@ def forward_from_admin(update: Update, context: CallbackContext):
         )
 
         if not original_sender_id:
-            update.message.reply_text("⚠️ Can't detect original sender.")
+            await update.message.reply_text("⚠️ Can't detect original sender.")
             return
 
         user_data = get_user_chat_info(original_sender_id)
         if not user_data:
-            update.message.reply_text("⚠️ No stored chat ID for this user.")
+            await update.message.reply_text("⚠️ No stored chat ID for this user.")
             return
 
-        context.bot.send_message(chat_id=user_data["chat_id"], text=update.message.text)
+        await context.bot.send_message(
+            chat_id=user_data["chat_id"], text=update.message.text
+        )
     except Exception as e:
         print(f"Admin reply failed: {e}")
-        update.message.reply_text("❌ Couldn't forward the message to user.")
+        await update.message.reply_text("❌ Couldn't forward the message to user.")
 
 
-def setup_cases(dispatcher):
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(
-        MessageHandler(Filters.text & ~Filters.command, handle_message)
+def setup_cases(application: Application):
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
     )
-    dispatcher.add_handler(
-        MessageHandler(Filters.text & Filters.chat(ADMIN_CHAT_ID), forward_from_admin)
+    application.add_handler(
+        MessageHandler(
+            filters.TEXT & filters.Chat(chat_id=ADMIN_CHAT_ID), forward_from_admin
+        )
     )

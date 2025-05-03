@@ -1,4 +1,4 @@
-python-telegram-bot[ext]==13.15
+python-telegram-bot[ext]
 fastapi
 uvicorn
 python-dotenv
