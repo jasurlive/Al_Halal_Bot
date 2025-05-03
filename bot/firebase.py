@@ -1,4 +1,3 @@
-# firebase.py
 import os
 import json
 import uuid
@@ -6,7 +5,7 @@ from datetime import datetime, timedelta
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# === BEGIN: Load credentials from ENV ==
+# === BEGIN: Load credentials from ENV ===
 firebase_credentials = os.getenv("FIREBASE_CREDENTIALS")
 if not firebase_credentials:
     raise ValueError("Missing FIREBASE_CREDENTIALS env variable")
@@ -19,16 +18,9 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
-# Define bot's unique user ID
-BOT_USER_ID = "alhalal_bot"  # You can set this as an environment variable if needed
 
-
+# Function to save a booking session
 def save_booking_session(user_id, chat_id):
-    if user_id != BOT_USER_ID:
-        raise PermissionError(
-            "This bot cannot access booking sessions for non-bot users."
-        )
-
     doc_ref = db.collection("sessions").document(str(user_id))
     doc_ref.set(
         {
@@ -40,12 +32,8 @@ def save_booking_session(user_id, chat_id):
     )
 
 
+# Function to get a booking session
 def get_booking_session(user_id):
-    if user_id != BOT_USER_ID:
-        raise PermissionError(
-            "This bot cannot access booking sessions for non-bot users."
-        )
-
     doc = db.collection("sessions").document(str(user_id)).get()
     if doc.exists:
         data = doc.to_dict()
