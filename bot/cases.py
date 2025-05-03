@@ -2,7 +2,7 @@ import logging
 from telegram import Update
 from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackContext
 from bot.keyboards import main_menu_keyboard
-from bot.storage_firebase import (
+from .storage_firebase import (
     add_user_chat,
     get_user_chat,
 )  # ✅ Firebase-based storage
