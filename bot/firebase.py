@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# === BEGIN: Load credentials from ENV ===
+# === BEGIN: Load credentials from ENV ==
 firebase_credentials = os.getenv("FIREBASE_CREDENTIALS")
 if not firebase_credentials:
     raise ValueError("Missing FIREBASE_CREDENTIALS env variable")
