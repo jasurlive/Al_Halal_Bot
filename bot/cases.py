@@ -3,6 +3,10 @@ from telegram import Update, InputMediaPhoto
 from telegram.ext import CommandHandler, MessageHandler, Filters, CallbackContext
 from bot.keyboards import main_menu_keyboard
 from bot.utils import send_image_with_caption
+from bot.firebase import (
+    save_booking_session,
+    get_booking_session,
+)  # 🔄 Firebase helpers
 from dotenv import load_dotenv
 import os
 
@@ -50,10 +54,10 @@ def start(update: Update, context: CallbackContext):
 
 
 def handle_message(update: Update, context: CallbackContext):
-    # Get the text message the user sent
     text = update.message.text
+    user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
 
-    # If the user sends a text message, handle the usual responses
     if text == "📍 Location":
         send_image_with_caption(
             update,
@@ -66,6 +70,10 @@ def handle_message(update: Update, context: CallbackContext):
             update, context, "assets/img/bot.png", "📞 Contact us at: +123 456 789"
         )
     elif text == "🛒 Book Items":
+        # === BEGIN: Store booking session in Firebase ===
+        save_booking_session(user_id, chat_id)
+        # === END: Store booking session in Firebase ===
+
         update.message.reply_text(
             "📝 Please reply to this message with the item(s) you wish to book.\n"
             "Include quantity, preferred time, and any special requests."
@@ -78,7 +86,26 @@ def handle_message(update: Update, context: CallbackContext):
             "🌐 Visit our site: https://example.com",
         )
     else:
-        update.message.reply_text("Please select an option from the keyboard.")
+        # === BEGIN: Handle booking follow-up messages ===
+        user_data = get_booking_session(user_id)
+        if user_data:
+            context.bot.send_message(
+                chat_id=ADMIN_CHAT_ID,
+                text=(
+                    f"🆕 *New Booking Received!*\n"
+                    f"👤 User ID: `{user_data['user_id']}`\n"
+                    f"🆔 Chat ID: `{user_data['chat_id']}`\n"
+                    f"📦 Order ID: `{user_data['order_id']}`\n"
+                    f"📝 Message: {text}"
+                ),
+                parse_mode="Markdown",
+            )
+            update.message.reply_text("✅ Booking received!")
+            # Optionally: clean up old session if you want one-time use
+            # delete_booking_session(user_id)
+        else:
+            update.message.reply_text("Please select an option from the keyboard.")
+        # === END: Handle booking follow-up messages ===
 
 
 # === Forward all user messages to admin ===

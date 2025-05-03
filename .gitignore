@@ -4,3 +4,5 @@
 .vercelignore
 
 api/__pycache__
+
+bot/credits.json
