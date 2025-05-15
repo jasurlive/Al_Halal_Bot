@@ -39,3 +39,8 @@ def get_booking_session(user_id):
         if datetime.utcnow() - data["timestamp"] <= timedelta(weeks=2):
             return data
     return None
+
+
+# Aliases for compatibility with cases.py
+save_user_info = save_booking_session
+get_user_chat_info = get_booking_session
