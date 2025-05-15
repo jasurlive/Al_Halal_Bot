@@ -44,3 +44,10 @@ def get_booking_session(user_id):
 # Aliases for compatibility with cases.py
 save_user_info = save_booking_session
 get_user_chat_info = get_booking_session
+
+__all__ = [
+    "save_booking_session",
+    "get_booking_session",
+    "save_user_info",
+    "get_user_chat_info",
+]
