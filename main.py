@@ -20,9 +20,12 @@ if not BOT_TOKEN:
 application = Application.builder().token(BOT_TOKEN).build()
 setup_cases(application)
 
+_initialized = False  # Add this flag
+
 
 # Vercel entrypoint
 async def handler(request):
+    global _initialized
     try:
         # Vercel passes the request as an ASGI scope+receive/send, but with python3.9+ you can use .json()
         if request.method == "GET":
@@ -38,6 +41,12 @@ async def handler(request):
         logger.debug(f"Incoming Telegram Update JSON: {data}")
         update = Update.de_json(data, bot)
         logger.debug("Update object created successfully.")
+
+        # Ensure Application is initialized
+        if not _initialized:
+            await application.initialize()
+            _initialized = True
+
         await application.process_update(update)
         logger.info("Update processed successfully.")
         return {"statusCode": 200, "body": "ok"}
