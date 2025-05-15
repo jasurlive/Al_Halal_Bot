@@ -7,16 +7,19 @@ from firebase_admin import credentials, firestore
 
 logger = logging.getLogger(__name__)
 
+# Loads Firestore credentials from environment variable (should be a JSON string)
 firebase_credentials = os.getenv("FIREBASE_CREDENTIALS")
 if not firebase_credentials:
     logger.critical("Missing FIREBASE_CREDENTIALS env variable")
     raise ValueError("Missing FIREBASE_CREDENTIALS env variable")
 cred = credentials.Certificate(json.loads(firebase_credentials))
 
+# Initializes Firebase app if not already initialized
 if not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
     logger.info("Firebase app initialized.")
 
+# Uses Firestore (Firebase DB)
 db = firestore.client()
 
 
@@ -52,6 +55,7 @@ def get_booking_session(user_id):
     return None
 
 
+# Aliases for compatibility with bot code
 save_user_info = save_booking_session
 get_user_chat_info = get_booking_session
 
