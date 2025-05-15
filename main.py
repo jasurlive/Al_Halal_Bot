@@ -6,6 +6,7 @@ from bot.cases import setup_cases
 
 import logging
 import os
+import traceback
 
 app = FastAPI()
 
@@ -30,5 +31,9 @@ async def webhook(request: Request):
 
         return {"status": "ok"}
     except Exception as e:
-        logging.error("Error in webhook: %s", str(e))
-        return {"status": "error", "message": str(e)}
+        logging.error("Error in webhook: %s\n%s", str(e), traceback.format_exc())
+        return {
+            "status": "error",
+            "message": str(e),
+            "traceback": traceback.format_exc(),
+        }
