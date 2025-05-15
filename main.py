@@ -1,19 +1,16 @@
 import logging
-from fastapi import FastAPI, Request
+import os
+import traceback
 from telegram import Update
 from telegram.ext import Application
 from bot import bot
 from bot.cases import setup_cases
-import os
-import traceback
 
 # Setup logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
 logger = logging.getLogger(__name__)
-
-app = FastAPI()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
@@ -24,18 +21,27 @@ application = Application.builder().token(BOT_TOKEN).build()
 setup_cases(application)
 
 
-@app.post("/")
-async def webhook(request: Request):
+# Vercel entrypoint
+async def handler(request):
     try:
-        data = await request.json()
-        logger.debug(f"Incoming Telegram Update: {data}")
+        # Vercel passes the request as an ASGI scope+receive/send, but with python3.9+ you can use .json()
+        if request.method == "GET":
+            return {"statusCode": 200, "body": "ok"}
+        if request.method != "POST":
+            return {"statusCode": 405, "body": "Method Not Allowed"}
+        try:
+            data = await request.json()
+        except Exception as e:
+            raw_body = await request.body()
+            logger.error(f"Failed to parse JSON. Raw body: {raw_body}")
+            return {"statusCode": 400, "body": "Invalid JSON"}
+        logger.debug(f"Incoming Telegram Update JSON: {data}")
         update = Update.de_json(data, bot)
+        logger.debug("Update object created successfully.")
         await application.process_update(update)
-        return {"status": "ok"}
+        logger.info("Update processed successfully.")
+        return {"statusCode": 200, "body": "ok"}
     except Exception as e:
         logger.error(f"Error in webhook: {e}\n{traceback.format_exc()}")
-        return {
-            "status": "error",
-            "message": str(e),
-            "traceback": traceback.format_exc(),
-        }
+        # Always return 200 to Telegram to avoid webhook being disabled, but log the error
+        return {"statusCode": 200, "body": "error"}

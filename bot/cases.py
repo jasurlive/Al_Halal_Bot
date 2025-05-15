@@ -113,6 +113,11 @@ async def forward_from_admin(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text("❌ Couldn't forward the message to user.")
 
 
+async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logger.info(f"Unknown command received: {update.message.text}")
+    await update.message.reply_text("❓ Sorry, I didn't understand that command.")
+
+
 def setup_cases(application: Application):
     logger.info("Setting up bot handlers.")
     application.add_handler(CommandHandler("start", start))
@@ -124,3 +129,5 @@ def setup_cases(application: Application):
             filters.TEXT & filters.Chat(chat_id=ADMIN_CHAT_ID), forward_from_admin
         )
     )
+    application.add_handler(MessageHandler(filters.COMMAND, unknown_command))
+    logger.info("All handlers registered successfully.")
