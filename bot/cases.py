@@ -38,7 +38,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Report to admin
     nickname = user.username or "N/A"
-    profile_link = f"https://t.me/{nickname}" if nickname != "N/A" else "N/A"
+    # Use user_id for profile link
+    profile_link = f"https://t.me/user?id={user_id}"
     report = (
         f"📥 *New User Started Bot:*\n"
         f"🆔 ID: `{user_id}`\n"
