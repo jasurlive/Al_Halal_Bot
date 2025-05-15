@@ -5,11 +5,13 @@ from bot import bot
 from bot.cases import setup_cases
 
 import logging
+import os
 
 app = FastAPI()
 
 # Initialize Application instead of Dispatcher
-application = Application.builder().token("YOUR_BOT_TOKEN").build()
+BOT_TOKEN = os.getenv("BOT_TOKEN")  # Make sure BOT_TOKEN is set in your environment
+application = Application.builder().token(BOT_TOKEN).build()
 setup_cases(application)
 
 
