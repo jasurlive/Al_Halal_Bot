@@ -23,8 +23,8 @@ async def webhook(request: Request):
         # Create an Update object from the incoming data
         update = Update.de_json(data, bot)
 
-        # Process the update using the Application's dispatcher
-        application.update_queue.put(update)  # Queue the update for processing
+        # Process the update using the Application's async method
+        await application.process_update(update)
 
         return {"status": "ok"}
     except Exception as e:
